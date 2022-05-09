@@ -50,9 +50,9 @@ Ef = EfOld;
     
 %% Now compute effective crack length ae
 
-% initialize ae and Gc
+% initialize ae and Cerr
 ae = zeros(1, nPts);
-Gc = zeros(1,nPts);
+Cerr = zeros(1,nPts);
 
 for i=1:nPts
     delta = input(i,2);
@@ -67,7 +67,7 @@ for i=1:nPts
     
     ae(i) = A/(6*alpha) - 2*beta/A;
     
-    Gc(i) = (6*F^2)/(b^2*h) * ( (2*ae(i)^2)/(h^2*Ef) + 1/(5*GLT) );
+    Cerr(i) = (6*F^2)/(b^2*h) * ( (2*ae(i)^2)/(h^2*Ef) + 1/(5*GLT) );
 end
 
 figure();
@@ -77,11 +77,11 @@ plot(input(:,4),'.-', 'DisplayName', 'Optical')
 legend()
 
 subplot(2,2,2); hold on;
-plot(Gc(2:end),'.-', 'DisplayName', 'de Moura')
+plot(Cerr(2:end),'.-', 'DisplayName', 'de Moura')
 plot(input(:,5), '.-', 'DisplayName', 'Optical')
 legend()
 
 subplot(2,2, 3:4); hold on;
-plot(ae(2:end),Gc(2:end),'.-', 'DisplayName', 'de Moura')
+plot(ae(2:end),Cerr(2:end),'.-', 'DisplayName', 'de Moura')
 plot(input(:,4), input(:,5), '.-', 'DisplayName', 'Optical')
 legend()
