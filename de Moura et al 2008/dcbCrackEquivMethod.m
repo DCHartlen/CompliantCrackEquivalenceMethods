@@ -14,13 +14,33 @@ classdef dcbCrackEquivMethod < handle
         I
         a0
         C0
+        Ef
+    end
+    
+    properties (Access = private)
+        method
     end
     
     methods
         function self = dcbCrackEquivMethod(varargin)
             % dcbCrackEquivMethod
             % Constructor
-            
+            % If method type has been defined
+            if length(varargin) == 1
+                if strcmpi(varargin{1}, 'deMoura')
+                    self.method = 'deMoura';
+                    fprintf('Using method of de Moura et al. (2008)\n');
+                elseif strcmpi(varargin{1}, 'deGracia')
+                    self.method = 'deGracia';
+                    fprintf('Using method of de Gracia et al. (2015)\n');
+                else
+                    error(['%s is not a defined option. Available options are "deMoura" and "deGracia"\n'],...
+                        varargin{1})
+                end
+            else
+                self.method = 'deMoura';
+                fprintf('Defaulting to method of de Moura et al. (2008)\n')
+            end        
         end
         
         function setMaterialProps(self, varargin)
@@ -69,7 +89,7 @@ classdef dcbCrackEquivMethod < handle
             % Use linear regression, does not assume a zero intercept
             C0 = polyfit(disp, force, 1);
             C0 = C0(1)^(-1);
-            
+            self.C0 = C0;
         end
         
         function Ef = fitFlexuralModulus(self, C0, a0)
@@ -102,12 +122,31 @@ classdef dcbCrackEquivMethod < handle
             end
             
             Ef = EfOld;
+            self.Ef = Ef;
         end
         
-        function [Gi, aEquiv] = computeCerr(self, disp, force, Ef)
+        function [Gi, aEquiv] = computeCerr(self, disp, force)
             % computeCerr
+            % Carries out calculation of critical energy release rate (Gi)
+            % and equivalent crack length(aEquiv) using the method
+            % specified during class initialization. 
+            
+            if strcmpi(self.method, 'deMoura')
+                [Gi, aEquiv] = computeCerrDeMoura(self, disp, force, ...
+                    self.Ef);
+            elseif strcmpi(self.method, 'deGracia')
+                [Gi, aEquiv] = computeCerrDeGracia(self, disp, force, ...
+                    self.Ef, self.C0);
+            else
+                error('Method not defined. Aborting');
+            end
+        end
+        
+        function [Gi, aEquiv] = computeCerrDeMoura(self, disp, force, Ef)
+            % computeCerrDeMoura
             % Computes critical energy release rate (GI) and effective
-            % crack length (aEquiv)
+            % crack length (aEquiv) using the method of de Moura et al
+            % (2008). 
             
             alpha = 8 / (self.b*self.h^3*Ef);
             beta = 12 / (5*self.b*self.h*self.G13);
@@ -125,7 +164,9 @@ classdef dcbCrackEquivMethod < handle
         
         function [Gi, aEquiv] = computeCerrDeGracia(self, disp, force, Ef, C0)
             % computeCerrDeGracia
-            % Uses the de Gracia et al (2015) method 
+            % Computes critical energy release rate (GI) and effective
+            % crack length (aEquiv) using the method of de Gracia et al
+            % (2015).
             
             % Iteratively solve for a0
             aOld = 40;

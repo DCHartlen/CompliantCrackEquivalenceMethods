@@ -1,5 +1,5 @@
 fclose all;
-% close all;
+close all;
 clear;
 clc;
 
@@ -25,8 +25,7 @@ for iSpec = 1:4
     Ef = dcbCalculator.fitFlexuralModulus(C0, responseCurves(iSpec).a0);
     
     [responseCurves(iSpec).GI, responseCurves(iSpec).aE] =...
-        dcbCalculator.computeCerr(forceDisp(:,1), forceDisp(:,2),...
-            Ef);
+        dcbCalculator.computeCerr(forceDisp(:,1), forceDisp(:,2));
 end
 % Sampling rate changes, need to update indices for C0 estimationg
 for iSpec = 5:8
@@ -37,35 +36,8 @@ for iSpec = 5:8
     Ef = dcbCalculator.fitFlexuralModulus(C0, responseCurves(iSpec).a0);
     
     [responseCurves(iSpec).GI, responseCurves(iSpec).aE] =...
-        dcbCalculator.computeCerr(forceDisp(:,1), forceDisp(:,2),...
-            Ef);
+        dcbCalculator.computeCerr(forceDisp(:,1), forceDisp(:,2));
 end
-
-% % cycle through all DCB specimens (de Gracia Method)
-% for iSpec = 1:4
-%     forceDisp = responseCurves(iSpec).data;
-%     
-%     C0 = dcbCalculator.fitCompliance(forceDisp(1:25,1), forceDisp(1:25,2));
-%     
-%     Ef = dcbCalculator.fitFlexuralModulus(C0, responseCurves(iSpec).a0);
-%     
-%     [responseCurves(iSpec).GI, responseCurves(iSpec).aE] =...
-%         dcbCalculator.computeCerrDeGracia(forceDisp(:,1), forceDisp(:,2),...
-%             Ef, C0);
-% end
-% % Sampling rate changes, need to update indices for C0 estimationg (de
-% % Gracia)
-% for iSpec = 5:8
-%     forceDisp = responseCurves(iSpec).data;
-%     
-%     C0 = dcbCalculator.fitCompliance(forceDisp(1:50,1), forceDisp(1:50,2));
-%     
-%     Ef = dcbCalculator.fitFlexuralModulus(C0, responseCurves(iSpec).a0);
-%     
-%     [responseCurves(iSpec).GI, responseCurves(iSpec).aE] =...
-%         dcbCalculator.computeCerrDeGracia(forceDisp(:,1), forceDisp(:,2),...
-%             Ef, C0);
-% end
 
 % Plot force disp and R-curve
 figure();
