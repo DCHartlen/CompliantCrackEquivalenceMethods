@@ -4,65 +4,24 @@ clear;
 clc;
 
 %% Load experimental data
-input = readmatrix('../TestData/DCB-01_Toughness.csv');
+input = readmatrix('../TestData/deGraciaTestDcb.csv');
 nPts = size(input,1);
 
-%% Unit system - Use Consistant Units
-% mm-kg-s (force: N, stress: MPa)
-
-% %% Input parameters 
-% b = 25; % specimen width
-% h = 2.7; % half specimen thickness
-% L = 123; % Total specimen length
-% a0 = input(1,4); % Initial crack length
-% dFdd = input(20,3)/input(20,2); % Initial stiffness of DCB
-% C0 = 1/dFdd; % Initial compliance of DCB
-% ELong = 19.3e3; % Approximate longitudinal modulus
-% ETran = 6.11e3; % Approximate transverse modulus
-% GLT = 2.288e3; % Approximate shear modulus between long. and tran. directions
-% I = b*h^3/12; % Second moment of inertia
-% A = b*h; % x-sectional area
-% 
-% %% Estimate Ef
-% % Procedure: 1) Assume a value of Ef based on E1, 1) compute Gamma, 2) Use 
-% % Gamma to Delta (root rotation correction), 3) Solve for Ef using Delta. 
-% % Iterate on new Ef. 
-% 
-% % Generate initial guess of Ef
-% EfOld = L^3/(4*b*(2*h)^3)*ELong;
-% 
-% error = 1;
-% iter = 1;
-% tol = 1e-5;
-% 
-% while (error > tol) && (iter < 100)
-%     Gamma = 1.18*sqrt(EfOld*ETran)/GLT;
-%     
-%     Delta = h*sqrt( (EfOld/11/GLT)*(3 - 2*(Gamma/(1+Gamma))^2) );
-%     
-%     EfNew = (C0 - 12*(a0+abs(Delta))/(5*b*h*GLT))^(-1) ...
-%                 * 8*(a0+abs(Delta))^3/(b*h^3);
-%     
-%     error = (EfNew-EfOld)/EfOld;
-%     EfOld = EfNew;
-%     iter = iter+1;
-% end
-% 
-% Ef = EfOld;
-% % Ef = ELong
-
 %% Iteratively solve for a0
-
 h = 1.5;
 b = 15;
 Ef = 116e3;
-GLT = 4e3;
+GLT = 4.0e3;
+ETran = 7e3;
 I = b*h^3/12;
 A = b*h;
-C0 = (0.9375-.1)/4.9752;
-ETran = 3e3;
 
-aOld = 51;
+input = [input, input(:,1)./input(:,2)];
+input(1,3) = input(2,3);
+
+C0 = mean(input(1,3));
+
+aOld = 40;
 iter = 1;
 error = 1;
 tol = 1e-6;
@@ -72,7 +31,7 @@ while (error > tol) && (iter < 100)
     iter = iter+1;
     aOld = aNew;
 end
-a = aNew;
+a = aNew
 
 %% Solve for stress distribution factors x1, x2, x3
 x1 = [...
@@ -88,7 +47,7 @@ gam2 = x1^2 + 3*x1*x2 + 3*x2^2;
 gam3 = x1^2 + 2*x1*x2 + 2*x2^2;
 
 polyCoefs = [...
-    7*(60*Ef*I),...
+    7/(60*Ef*I),...
     (3*gam1 + 9*a)/(20*Ef*I),...
     (gam2 + 6*gam1*a)/(12*Ef*I),...
     (gam1*gam3 + 15*gam2*a)/(60*Ef*I) - (2*a)/(GLT*A),...
@@ -98,3 +57,45 @@ polyCoefs = [...
 x3 = roots(polyCoefs);
 x3 = max(x3(x3 == real(x3)))
 
+
+%% Determine crack length
+beta1 = (x1^2 + 3*x1*x2 + 4*x1*x3 + 3*x2^2 + 8*x2*x3 + 5*x3^2) ...
+    / (x1 + 2*x2 +2*x3);
+beta2 = 3 / x3 / (x1 + 2*x2 + 2*x3);
+beta3 = (x1^2*x2 + 3*x1*x3^2 + 3*x1*x2*x3 + 3*x2^2*x3 + 6*x2*x3^2 ...
++ 3*x3^3) / (x1 + 2*x2 +2*x3);
+beta4 = (x1 + 2*x2 + 3*x3) / x3 / (x1 + 2*x2*x3);
+
+% Determine current crack length using FPI at each point
+crackLen = zeros(nPts,1);
+crackLen(1) = a;
+GI = zeros(nPts,1);
+theta = zeros(nPts, 1);
+
+for iPt = 2:nPts
+    comp = input(iPt,3);
+    P = input(iPt,2);
+    
+    goalSeek = @(a) ( (2*a^3)/(3*Ef*I) + (beta1*a^2)/(2*Ef*I) + (2*a)/(A*GLT) ...
+    + (4*h*beta2*a)/(b*ETran) + (beta3*a)/(6*Ef*I) + (4*beta4*h)/(b*ETran) - comp);
+    
+    a = fzero(goalSeek, crackLen(iPt-1));
+    
+    crackLen(iPt) = a;
+    
+    GI(iPt) = (P^2*a^2)/(b*Ef*I) + (P^2*beta1*a)/(2*b*Ef*I) ...
+        + (P^2)/(b*A*GLT) + (2*h*beta2*P^2)/(b^2*ETran) ...
+        + (beta3*P^2)/(12*b*Ef*I);
+    
+    theta(iPt) = P/(12*Ef*I) * (beta3 + 3*beta1*a);
+end
+GI(1) = GI(2);
+
+figure(); tiledlayout('flow');
+nexttile; hold on;
+plot(input(:,1),crackLen)
+nexttile; hold on;
+plot(crackLen-46,GI)
+
+
+    

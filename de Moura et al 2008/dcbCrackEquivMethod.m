@@ -123,8 +123,90 @@ classdef dcbCrackEquivMethod < handle
             
         end
         
-    end
-    
+        function [Gi, aEquiv] = computeCerrDeGracia(self, disp, force, Ef, C0)
+            % computeCerrDeGracia
+            % Uses the de Gracia et al (2015) method 
+            
+            % Iteratively solve for a0
+            aOld = 40;
+            iter = 1;
+            error = 1;
+            tol = 1e-6;
+            while (error > tol) && (iter < 100)
+                aNew = ( (3/2*Ef*self.I) * (C0 ...
+                    / (1+(3/10)*(Ef/self.G13)*(self.h^2/aOld^2))) )^(1/3);
+                error = abs(aNew-aOld)/aOld;
+                iter = iter+1;
+                aOld = aNew;
+            end
+            a = aNew;
+            
+            % Solve for stress distribution factors x1, x2, x3
+            x1 = [...
+                self.h/sqrt(6*self.G13) * sqrt(5*Ef + 5*Ef*sqrt(1 ...
+                - (36*self.G13^2)/(5*Ef*self.E3))), ...
+                self.h/sqrt(6*self.G13) * sqrt(5*Ef ...
+                - 5*Ef*sqrt(1 - (36*self.G13^2)/(5*Ef*self.E3)))];
+            x1 = max(x1);
+            
+            
+            x2 = (x1/2)*(-1 + sqrt(-1 + (10*Ef*self.h^2)/(3*self.G13*x1^2)));
+            
+            gam1 = x1 + 2*x2;
+            gam2 = x1^2 + 3*x1*x2 + 3*x2^2;
+            gam3 = x1^2 + 2*x1*x2 + 2*x2^2;
+            
+            polyCoefs = [...
+                7/(60*Ef*self.I),...
+                (3*gam1 + 9*a)/(20*Ef*self.I),...
+                (gam2 + 6*gam1*a)/(12*Ef*self.I),...
+                (gam1*gam3 + 15*gam2*a)/(60*Ef*self.I) - (2*a)/(self.G13*self.A),...
+                (gam1*gam3*a)/(20*Ef*self.I) - (gam1*a)/(self.G13*self.A) - (6*self.h)/(self.b*self.E3),...
+                -(2*self.h*gam1 + 6*self.h*a)/(self.b*self.E3) ];
+            
+            x3 = roots(polyCoefs);
+            x3 = max(x3(x3 == real(x3)));
+            
+            % Determine Crack length
+            beta1 = (x1^2 + 3*x1*x2 + 4*x1*x3 + 3*x2^2 + 8*x2*x3 + 5*x3^2) ...
+                / (x1 + 2*x2 +2*x3);
+            beta2 = 3 / x3 / (x1 + 2*x2 + 2*x3);
+            beta3 = (x1^2*x2 + 3*x1*x3^2 + 3*x1*x2*x3 + 3*x2^2*x3 + 6*x2*x3^2 ...
+                + 3*x3^3) / (x1 + 2*x2 +2*x3);
+            beta4 = (x1 + 2*x2 + 3*x3) / x3 / (x1 + 2*x2*x3);
+            
+            % Determine current crack length using FPI at each point
+            nPts = length(disp);
+            crackLen = zeros(nPts,1);
+            crackLen(1) = a;
+            Gi = zeros(nPts,1);
+            theta = zeros(nPts, 1);
+            
+            for iPt = 2:nPts
+                comp = disp(iPt)/force(iPt);
+                P = force(iPt);
+                
+                goalSeek = @(a) ( (2*a^3)/(3*Ef*self.I) + (beta1*a^2)/(2*Ef*self.I) + (2*a)/(self.A*self.G13) ...
+                    + (4*self.h*beta2*a)/(self.b*self.E3) + (beta3*a)/(6*Ef*self.I) + (4*beta4*self.h)/(self.b*self.E3) - comp);
+                
+                a = fzero(goalSeek, crackLen(iPt-1));
+                
+                crackLen(iPt) = a;
+                
+                Gi(iPt) = (P^2*a^2)/(self.b*Ef*self.I) + (P^2*beta1*a)/(2*self.b*Ef*self.I) ...
+                    + (P^2)/(self.b*self.A*self.G13) + (2*self.h*beta2*P^2)/(self.b^2*self.E3) ...
+                    + (beta3*P^2)/(12*self.b*Ef*self.I);
+                
+                theta(iPt) = P/(12*Ef*self.I) * (beta3 + 3*beta1*a);
+            end
+            Gi(1) = Gi(2);
+            aEquiv = crackLen;
+            
+        end
+            
+            
+        end
+        
 end
         
             
