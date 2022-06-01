@@ -4,7 +4,7 @@ clear;
 clc;
 
 %% Load experimental data
-input = readmatrix('../TestData/deGraciaTestDcb.csv');
+input = readmatrix('../../Examples/deGraciaTestDcb.csv');
 nPts = size(input,1);
 
 %% Iteratively solve for a0
